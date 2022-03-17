@@ -1,0 +1,199 @@
+---
+title: "Power simulation for waterlogging experiment"
+author: "Hamish McLean"
+date: "2022-02-03"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(ggpubr)
+library(abind) # bind matrices
+library(manipulate)
+library(tictoc)
+```
+
+# Power simulation for waterlogging experiment
+
+The purpose of this notebook is to simulate the waterlogging experiment and calculate power for different experimental designs.
+
+## The experiment
+
+Apple rootstocks will be planted in pots and arranged in a randomised complete block experimental design. A range of waterlogging treatments will be applied. Trees will be inoculated with *Neonectria ditissima* and canker symptoms will be assessed. Canker incidence will be compared for the different waterlogging treatments. 300 rootstocks will be available, which will be planted in threes in pots. Three inoculation points per tree will ensure Pots will be grouped together in plots to
+
+## Parameters
+
+```{r}
+trees <- 300
+treesPerPot <- 3
+
+potsPerPlot <- 5
+treesPerPlot <- treesPerPot * potsPerPlot
+plots <- trees %/% treesPerPlot
+
+treatments <- 5
+blocks <- plots %/% treatments
+remainder <- trees - blocks * treatments * treesPerPlot
+
+pointsPerTree <- 3
+pointsPerPlot <- pointsPerTree * treesPerPlot
+
+infectionRate <- 0.15
+effect <- 1.5
+
+
+data.table(
+    factor = c("treesPerPlot", "plots", "treatments", "blocks", "remainder", 
+               "infectionRate", "effect"),
+    value = c(treesPerPlot, plots, treatments, blocks, remainder, 
+              infectionRate, effect)
+)
+```
+
+## Single experiment
+
+For a single iteration of the experiment, canker infections are randomly sampled from a binomial distribution, $y\sim{}Bin(p, n)$, with probability estimated as `infectionRate` and n as the number of inoculation points per plot as `pointsPerPlot`.
+
+```{r}
+singleExperiment <- function(treatment, blocks, pointsPerPlot, infectionRate){
+    treatment <- rep(treatment, blocks)
+    incidence <- rbinom(blocks, pointsPerPlot, infectionRate)/pointsPerPlot
+    n <- rep(pointsPerPlot, blocks)
+    data.table(treatment, incidence, n)
+}
+
+singleData <- rbind(
+  singleExperiment("control", blocks, pointsPerPlot, infectionRate),
+  singleExperiment("waterlogged", blocks, pointsPerPlot, infectionRate * effect)
+)
+
+singleModel <- glm(incidence ~ treatment, family = binomial(link = 'logit'), 
+    data = singleData, weights = n)
+
+summary(singleModel)
+```
+
+```{r}
+gghistogram(data = singleData, 
+          x = "incidence",
+          add = "mean",
+          binwidth = 0.05,
+          color = "treatment", fill = "treatment",
+          position = "dodge")
+          #palette = c("#00AFBB", "#E7B800"))
+
+ggstripchart(data = singleData, 
+             x = "treatment",
+             y = "incidence",
+             add = "mean_ci",
+             color = "treatment",
+             add.params = list(color = "black")) #+
+  #stat_compare_means(method = 'kruskal.test')#comparison = list(c("control", "waterlogged")))
+
+```
+
+## Power calculation
+
+To calculate power, the simulation must be repeated many times. Power is calculated as the proportion of p values less than alpha (0.05 by default) after fitting each repeat to a glm. For this implementation, a matrix (with `blocks` rows and `iterations` columns) of random values sampled from a binomial distribution with each column as a single iteration of the experiment. A glm is fit to each column and the p values recorded.
+
+```{r}
+#' Simulate power by generating data from a binomial distribution,
+#' fitting to a binomial glm and calculating power.
+simulatePower <- function(iterations, blocks, points, rate, effect, alpha=0.05){
+    
+    # Generate data
+    control <- replicate(iterations, rbinom(blocks, points, rate)/points)
+    waterlogged <- replicate(iterations, 
+                             rbinom(blocks, points, rate * effect)/points)
+    data <- abind(control, waterlogged, along = 1)
+    
+    # Fit model and calculate p values
+    treatment <- c(rep("control", blocks), rep("waterlogged", blocks))
+    n <- rep(points, 2 * blocks)
+    pValues <- apply(data, 2, function(y) calculateP(y, treatment, n))
+    
+    # Calculate power
+    sum(pValues <= alpha) / length(pValues)
+}
+
+#' Fit a binomial glm and return the p value.
+calculateP <- function(y, x, weights){
+    model <- glm(y ~ x, family = binomial(link = 'logit'), weights = weights)
+    coef(summary(model))[2,4]  # return p value from model
+}
+
+#simulatePower(iterations = 1000, blocks, pointsPerPlot, infectionRate, effect)
+```
+
+## Varying parameters
+
+To compare power for different experimental designs, the experimental parameters are varied according to different designs. For this, a table is generated from every combination of the variable parameters. The power simulation is then run for each combination of parameters.
+
+```{r}
+trees <- 300
+treesPerPot <- 3
+pointsPerTree <- 3
+
+potsPerPlot <- 4
+treatments <- c(3, 5, 7)
+infectionRate <- c(0.1, 0.15, 0.2)
+effect <- c(1.4, 1.7, 2)
+
+experiments <- expand.grid(
+    potsPerPlot = potsPerPlot,
+    treatments = treatments,
+    rate = infectionRate, 
+    effect = effect
+) %>%
+    as.data.table() %>% 
+    .[, treesPerPlot := treesPerPot * potsPerPlot] %>% 
+    .[, plots := trees %/% treesPerPlot] %>% 
+    .[, blocks := plots %/% treatments] %>% 
+    .[, points := pointsPerTree * treesPerPlot] %>% 
+    .[, remainder := trees - blocks * treatments * treesPerPlot]
+
+```
+
+```{r}
+iterations <- 1000
+
+#' Simulate power for each combination of parameters in `experiments`.
+#' This function takes a long time to run!
+powerComparison <- function(iterations, experiments){
+    experiments[, power := mapply(simulatePower, iterations, 
+                                  blocks, points, rate, effect)]
+}
+
+# This takes a long time to run!
+tic(paste(nrow(data), "simulations of", iterations, "iterations"))
+powers <- powerComparison(iterations, experiments)
+toc()
+
+#View(powers)
+```
+
+## Results
+
+```{r}
+ggplot(powers, aes(effect, power, group = rate, 
+                 color = cut(rate, breaks = 3, labels = infectionRate))) +
+    geom_point() +
+    geom_line() +
+    geom_hline(yintercept = 0.8, linetype = "dotted", col = "red") +
+    scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1), limits = c(0, 1)) +
+    #facet_grid(potsPerPlot ~ treatments, labeller = label_both) +
+    facet_wrap(~treatments, labeller = label_both) +
+    scale_color_viridis_d(name = "infectionRate") +
+    theme_bw() + 
+    ggtitle(paste("Power simulation with", iterations, "iterations"))
+```
+
+`infectionRate` and `effect` size has a large effect on power. This makes it difficult to reliably predict power as the values of these variables must be estimated.
+
+`potsPerPlot` has little effect on power. More `potsPerPlot` results in more inoculation points per plot (`pointsPerPlot`), but fewer blocks and vice versa.
+
+`treatments` has a large effect on power. 3 treatments (control and 2 waterlogging treatments) has sufficient power for effect sizes above 1.6. 5 treatments (control and 4 waterlogging treatments) only has sufficient power for effect sizes above 1.7 and only with `infectionRate` of 0.15 or above.
