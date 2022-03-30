@@ -1,9 +1,11 @@
 ---
 title: "Power simulation for waterlogging experiment"
 author: "Hamish McLean"
-date: "2022-02-03"
-output: html_document
-editor_options: 
+date: '2022-02-03'
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: inline
 ---
 
