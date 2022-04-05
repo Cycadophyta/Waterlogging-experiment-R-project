@@ -41,34 +41,18 @@ UK hourly rainfall data for East Malling, Kent was downloaded from: <https://dat
 
 The table description can be found here: <https://artefacts.ceda.ac.uk/badc_datadocs/ukmo-midas/RH_Table.html>
 
-```{r}
-folder_url <- "https://data.ceda.ac.uk/badc/ukmo-midas-open/data/uk-hourly-rain-obs/dataset-version-202107/kent/00744_east-malling/qc-version-1/"
-
-file_name <- "midas-open_uk-hourly-rain-obs_dv-202107_kent_00744_east-malling_qcv-1_2000.csv"
-
-url <- "https://dap.ceda.ac.uk/badc/ukmo-midas-open/data/uk-hourly-rain-obs/dataset-version-202107/kent/00744_east-malling/qc-version-1/midas-open_uk-hourly-rain-obs_dv-202107_kent_00744_east-malling_qcv-1_2000.csv?download=1"
-
-url <- paste0(folder_url, file_name)
-
-curl = getCurlHandle()
-curlSetOpt(cookiejar = "", followlocation = TRUE, curl = curl)
-
-tmp <- read_delim(getURL(url = url, curl = curl), delim = ",", col_names = FALSE)
-```
-
-
 ```{r warning=FALSE}
-data_folder <- "../data/hourly-rain_east-malling"
-file_prefix <- "midas-open_uk-hourly-rain-obs_dv-202107_kent_00744_east-malling_qcv-1_"
+dataFolder <- "data/hourly-rain_east-malling"
+filePrefix <- "hourly-rain_east-malling_"
 
-start_year <- 2000
-end_year <- 2020
-years <- start_year:end_year
+startYear <- 2000
+endYear <- 2020
+years <- startYear:endYear
 
 columns <- c("ob_end_time", "met_domain_name", "prcp_amt")
 
-files <- lapply(years, function(year) here(data_folder, 
-                                           paste0(file_prefix, year, ".csv")))
+files <- lapply(years, function(year) here(dataFolder, 
+                                           paste0(filePrefix, year, ".csv")))
 
 data <- rbindlist(lapply(files, fread, skip = 61))#, select = columns))
 
@@ -226,8 +210,18 @@ ggplot(monthly, aes(x = month, y = prcpMean)) +
                  conf.int = 0.95, fill = "lightblue") +
     stat_summary(geom = "line", fun = mean, linetype = "dashed") +
     stat_summary(geom = "point", fun = mean, color = "red") + 
-    labs(x = "Month", y = "Mean precipitation (mm/day)", 
-         title = "Mean daily precipitation per month") +
+    labs(x = "Month", y = "Mean daily precipitation (mm/day)", 
+         title = paste0("Mean daily precipitation for ", startYear, '/', endYear)) +
+    scale_x_discrete(limits = month.abb) + 
+    theme_classic2()
+
+ggplot(monthly, aes(x = month, y = prcpSum)) + 
+    stat_summary(geom = "ribbon", fun.data = mean_cl_normal, width = 0.1, 
+                 conf.int = 0.95, fill = "lightblue") +
+    stat_summary(geom = "line", fun = mean, linetype = "dashed") +
+    stat_summary(geom = "point", fun = mean, color = "red") + 
+    labs(x = "Month", y = "Mean monthly precipitation (mm/month)", 
+         title = paste0("Mean monthly precipitation for ", startYear, '/', endYear)) +
     scale_x_discrete(limits = month.abb) + 
     theme_classic2()
 
@@ -246,7 +240,9 @@ ggplot(rainEvents, aes(x = month, y = rainPerc)) +
                  width = 0.1, conf.int = 0.95, fill = "lightblue") +
     stat_summary(geom = "line", fun = mean, linetype = "dashed") +
     stat_summary(geom = "point", fun = mean, color = "red") +
-    labs(x = "Month", y = "% of rainy days", title = "% of rainy days per month") +
+    labs(x = "Month", y = "Rainy days (%)", 
+         title = paste0("Percentage of rainy days per month for ", 
+                        startYear, '/', endYear)) +
     scale_x_discrete(limits = month.abb) + 
     theme_classic2()
 

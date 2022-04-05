@@ -25,7 +25,7 @@ The purpose of this notebook is to simulate the waterlogging experiment and calc
 
 ## The experiment
 
-Apple rootstocks will be planted in pots and arranged in a randomised complete block experimental design. A range of waterlogging treatments will be applied. Trees will be inoculated with *Neonectria ditissima* and canker symptoms will be assessed. Canker incidence will be compared for the different waterlogging treatments. 300 rootstocks will be available, which will be planted in threes in pots. Three inoculation points per tree will ensure Pots will be grouped together in plots to
+Apple rootstocks will be planted in pots and arranged in a randomised complete block experimental design. A range of waterlogging treatments will be applied. Trees will be inoculated with *Neonectria ditissima* and canker symptoms will be assessed. Canker incidence will be compared for the different waterlogging treatments. 300 rootstocks will be available, which will be planted in threes in pots. Three inoculation points per tree will ensure there is no interaction between lesions. Pots will be grouped together in plots for more inoculation points per plot.
 
 ## Parameters
 
@@ -161,7 +161,7 @@ experiments <- expand.grid(
 ```
 
 ```{r}
-iterations <- 1000
+iterations <- 5000
 
 #' Simulate power for each combination of parameters in `experiments`.
 #' This function takes a long time to run!
@@ -171,7 +171,7 @@ powerComparison <- function(iterations, experiments){
 }
 
 # This takes a long time to run!
-tic(paste(nrow(data), "simulations of", iterations, "iterations"))
+tic(paste(nrow(experiments), "simulations of", iterations, "iterations"))
 powers <- powerComparison(iterations, experiments)
 toc()
 
@@ -189,7 +189,7 @@ ggplot(powers, aes(effect, power, group = rate,
     scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1), limits = c(0, 1)) +
     #facet_grid(potsPerPlot ~ treatments, labeller = label_both) +
     facet_wrap(~treatments, labeller = label_both) +
-    scale_color_viridis_d(name = "infectionRate") +
+    scale_color_viridis_d(name = "Infection Rate") +
     theme_bw() + 
     ggtitle(paste("Power simulation with", iterations, "iterations"))
 ```
