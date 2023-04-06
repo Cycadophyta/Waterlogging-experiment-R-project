@@ -33,7 +33,7 @@ Apple rootstocks will be planted in pots and arranged in a randomised complete b
 trees <- 300
 treesPerPot <- 3
 
-potsPerPlot <- 5
+potsPerPlot <- 4
 treesPerPlot <- treesPerPot * potsPerPlot
 plots <- trees %/% treesPerPlot
 

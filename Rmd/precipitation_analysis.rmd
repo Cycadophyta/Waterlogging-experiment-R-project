@@ -215,7 +215,8 @@ ggplot(monthly, aes(x = month, y = prcpMean)) +
     scale_x_discrete(limits = month.abb) + 
     theme_classic2()
 
-ggplot(monthly, aes(x = month, y = prcpSum)) + 
+monthly_plot <- ggplot(monthly, aes(x = month, y = prcpSum)) + 
+    ylim(0, NA) +
     stat_summary(geom = "ribbon", fun.data = mean_cl_normal, width = 0.1, 
                  conf.int = 0.95, fill = "lightblue") +
     stat_summary(geom = "line", fun = mean, linetype = "dashed") +
@@ -224,6 +225,10 @@ ggplot(monthly, aes(x = month, y = prcpSum)) +
          title = paste0("Mean monthly precipitation for ", startYear, '/', endYear)) +
     scale_x_discrete(limits = month.abb) + 
     theme_classic2()
+
+show(monthly_plot)
+
+#ggsave("Mean monthly precipitaion for 2000--2020.png", plot = monthly_plot, device = 'png', path = here('graphs'))
 
 ```
 
@@ -235,7 +240,8 @@ rainEvents <- daily[, .(rainPerc = sum(precipitation > 0) / .N * 100, N = .N),
     .[, monthName := factor(month.abb[month],levels=month.abb)]
 
 
-ggplot(rainEvents, aes(x = month, y = rainPerc)) + 
+percentage_plot <- ggplot(rainEvents, aes(x = month, y = rainPerc)) + 
+    ylim(0, 80) +
     stat_summary(geom = "ribbon", fun.data = mean_cl_normal, 
                  width = 0.1, conf.int = 0.95, fill = "lightblue") +
     stat_summary(geom = "line", fun = mean, linetype = "dashed") +
@@ -245,6 +251,10 @@ ggplot(rainEvents, aes(x = month, y = rainPerc)) +
                         startYear, '/', endYear)) +
     scale_x_discrete(limits = month.abb) + 
     theme_classic2()
+
+show(percentage_plot)
+
+#ggsave("Percentage of rainy days per month for 2000--2020.png", plot = percentage_plot, device = 'png', path = here('graphs'))
 
 ```
 
